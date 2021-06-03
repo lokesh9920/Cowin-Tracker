@@ -1,8 +1,10 @@
 package com.vaccine.cowin;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -12,6 +14,9 @@ import java.util.concurrent.TimeUnit;
 
 import javax.annotation.PostConstruct;
 import javax.net.ssl.SSLContext;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
 
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
@@ -41,23 +46,31 @@ public class EntryPoint {
 	
 	@PostConstruct
 	public void startQueries() {
-		System.out.println("Starting the PostConstruct");
-
 		scheduledThreadPoolForQueries.schedule(new Runnable() {
 			
 			@Override
 			public void run() {
 				
 				System.out.println("**** TASK STARTED ****");
-
+				int i = 1;
 				//infinite loop to run indefinitely
 				while(true) {
+					System.out.println("Iteration.... " + i);
 					monitorRequiredDate();
 					monitorFutureDate();
+					monitorRequiredDateHyderabad();
+					monitorFutureDateHyderabad();
+					i++;
+					try {
+						Thread.currentThread().sleep(1000*120);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
 				
 			}
-		}, 1, TimeUnit.MINUTES);
+		}, 30, TimeUnit.SECONDS);
 		
 	}
 	
@@ -65,6 +78,7 @@ public class EntryPoint {
 	private void monitorRequiredDate() {
 		RestTemplate restTemplate = getRestTemplate();		
 		System.out.println("Got RestTemplate");
+	
 		
 		try {
 		ResponseEntity<AvailablityList> fetchedPosts = 
@@ -83,7 +97,7 @@ public class EntryPoint {
 	
 	private void monitorFutureDate() {
 		RestTemplate restTemplate = getRestTemplate();		
-		System.out.println("Got resttemplate");
+		System.out.println("Got RestTemplate");
 		
 		try {
 		ResponseEntity<AvailablityList> fetchedPosts = 
@@ -101,14 +115,54 @@ public class EntryPoint {
 	}
 	
 	
+	// for hyderabad tracking
+	private void monitorRequiredDateHyderabad() {
+		RestTemplate restTemplate = getRestTemplate();		
+		System.out.println("Got RestTemplate");
+		
+		try {
+		ResponseEntity<AvailablityList> fetchedPosts = 
+				restTemplate.getForEntity("https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict?district_id=581&date="+startDate,
+						AvailablityList.class);
+		
+			ArrayList<Center> fetchedCentersList = fetchedPosts.getBody().getCenters();
+			iterateOnCenters(fetchedCentersList, "requiredHyd");
+			
+		}catch (Exception e) {
+			System.out.println("**ERROR**: Exception encountered during restRequest");
+			e.printStackTrace();
+		}
+
+	}
+	
+	private void monitorFutureDateHyderabad() {
+		RestTemplate restTemplate = getRestTemplate();		
+		System.out.println("Got RestTemplate");
+		
+		try {
+		ResponseEntity<AvailablityList> fetchedPosts = 
+				restTemplate.getForEntity("https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict?district_id=581&date="+futureDate,
+						AvailablityList.class);
+		
+			ArrayList<Center> fetchedCentersList = fetchedPosts.getBody().getCenters();
+			iterateOnCenters(fetchedCentersList, "futureHyd");
+			
+		}catch (Exception e) {
+			System.out.println("**ERROR**: Exception encountered during restRequest");
+			e.printStackTrace();
+		}
+
+	}
+
+	
 	private void iterateOnCenters(ArrayList<Center> centers, String filePrefix) {
 		
 		for(Center center : centers) {
 			ArrayList<Session> sessions = center.getSessions();
-			
+
 			for(Session session : sessions) {
 				if(session.getDate().equals("04-06-2021")) {
-					
+					makeSound("notification.wav");
 						print(getCurrentDateTime() + " ...The Center: " + center.toString() + "started vaccines at " + getCurrentDateTime() + "\n", filePrefix+"Starting_"+session.getDate());
 				}
 				
@@ -116,7 +170,16 @@ public class EntryPoint {
 						&& session.getMin_age_limit() == 18){
 					
 					//favorable for me
+					makeSound("notif.wav"); //favorable notification
 					print(getCurrentDateTime() + " ...The Center: " + center.toString() + "started vaccines at " + getCurrentDateTime() + "\n", filePrefix+"favorable_"+session.getDate());
+					
+				}
+				
+				if(session.getAvailable_capacity_dose1() > 0
+						&& session.getMin_age_limit() == 18){
+					
+					//favorable for me
+					print(getCurrentDateTime() + " ...The Center: " + center.toString() + "started vaccines at " + getCurrentDateTime() + "\n", filePrefix+"favorable_allvaccines"+session.getDate());
 					
 				}
 			}
@@ -139,6 +202,23 @@ public class EntryPoint {
 	    
 	}
 	
+	private void makeSound(String fileName) {
+		
+		try {
+			File f = new File("./" + fileName);
+		    AudioInputStream audioIn = AudioSystem.getAudioInputStream(f.toURI().toURL());  
+	        // Get a sound clip resource.
+	        Clip clip = AudioSystem.getClip();
+	        // Open audio clip and load samples from the audio input stream.
+	        clip.open(audioIn);
+	        
+	        clip.start();
+		}catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+		
+	}
 	private String getCurrentDateTime() {
 		SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy hh:mm:ss");  
 	    Date date = new Date();  
