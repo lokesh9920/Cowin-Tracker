@@ -60,9 +60,11 @@ public class EntryPoint {
 					monitorFutureDate();
 					monitorRequiredDateHyderabad();
 					monitorFutureDateHyderabad();
+					
+					//monitorPremium();
 					i++;
 					try {
-						Thread.currentThread().sleep(1000*120);
+						Thread.currentThread().sleep(1000*30);
 					} catch (InterruptedException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -74,7 +76,38 @@ public class EntryPoint {
 		
 	}
 	
+	private void monitorPremium() {
+		RestTemplate restTemplate = getRestTemplate();		
+		System.out.println("Got RestTemplate");
 	
+		
+		try {
+		ResponseEntity<AvailablityList> fetchedPosts = 
+				restTemplate.getForEntity("https://cdn-api.co-vin.in/api/v2/appointment/sessions/calendarByDistrict?district_id=603&date="+startDate,
+						AvailablityList.class);
+		
+			ArrayList<Center> fetchedCentersList = fetchedPosts.getBody().getCenters();
+			iterateOnCenters(fetchedCentersList, "premium");
+			
+		}catch (Exception e) {
+			System.out.println("**ERROR**: Exception encountered during Premium restRequest");
+			e.printStackTrace();
+		}
+		
+		try {
+			ResponseEntity<AvailablityList> fetchedPosts = 
+					restTemplate.getForEntity("https://cdn-api.co-vin.in/api/v2/appointment/sessions/calendarByDistrict?district_id=581&date="+startDate,
+							AvailablityList.class);
+			
+				ArrayList<Center> fetchedCentersList = fetchedPosts.getBody().getCenters();
+				iterateOnCenters(fetchedCentersList, "premium");
+				
+			}catch (Exception e) {
+				System.out.println("**ERROR**: Exception encountered during Premium restRequest");
+				e.printStackTrace();
+			}
+
+	}
 	private void monitorRequiredDate() {
 		RestTemplate restTemplate = getRestTemplate();		
 		System.out.println("Got RestTemplate");
@@ -125,6 +158,7 @@ public class EntryPoint {
 				restTemplate.getForEntity("https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict?district_id=581&date="+startDate,
 						AvailablityList.class);
 		
+		
 			ArrayList<Center> fetchedCentersList = fetchedPosts.getBody().getCenters();
 			iterateOnCenters(fetchedCentersList, "requiredHyd");
 			
@@ -162,11 +196,19 @@ public class EntryPoint {
 
 			for(Session session : sessions) {
 				if(session.getDate().equals("04-06-2021")) {
-					makeSound("notification.wav");
+					//makeSound("notification.wav");
 						print(getCurrentDateTime() + " ...The Center: " + center.toString() + "started vaccines at " + getCurrentDateTime() + "\n", filePrefix+"Starting_"+session.getDate());
 				}
+								
 				
-				if(session.getVaccine().equalsIgnoreCase("COVISHIELD") && session.getAvailable_capacity_dose1() > 0
+				if(session.getDate().equals("04-06-2021") && session.getVaccine().equalsIgnoreCase("COVISHIELD")
+						&& session.getAvailable_capacity_dose1() > 0
+						&& session.getMin_age_limit() == 18) {
+					makeSound("notification.wav");
+						print(getCurrentDateTime() + " ...The Center: " + center.toString() + "started vaccines at " + getCurrentDateTime() + "\n", filePrefix+"favorable_"+session.getDate());
+				}
+								
+				if(session.getDate().equals("03-06-2021") && session.getVaccine().equalsIgnoreCase("COVISHIELD") && session.getAvailable_capacity_dose1() > 0
 						&& session.getMin_age_limit() == 18){
 					
 					//favorable for me
@@ -175,13 +217,13 @@ public class EntryPoint {
 					
 				}
 				
-				if(session.getAvailable_capacity_dose1() > 0
-						&& session.getMin_age_limit() == 18){
-					
-					//favorable for me
-					print(getCurrentDateTime() + " ...The Center: " + center.toString() + "started vaccines at " + getCurrentDateTime() + "\n", filePrefix+"favorable_allvaccines"+session.getDate());
-					
-				}
+//				if(session.getAvailable_capacity_dose1() > 0
+//						&& session.getMin_age_limit() == 18){
+//					
+//					//favorable for me
+//					print(getCurrentDateTime() + " ...The Center: " + center.toString() + "started vaccines at " + getCurrentDateTime() + "\n", filePrefix+"favorable_allvaccines"+session.getDate());
+//					
+//				}
 			}
 		}
 	}
